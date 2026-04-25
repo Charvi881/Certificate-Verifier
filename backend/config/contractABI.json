@@ -1,0 +1,146 @@
+[
+  {
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true,  "name": "certId",      "type": "bytes32" },
+      { "indexed": false, "name": "certHash",     "type": "bytes32" },
+      { "indexed": true,  "name": "university",   "type": "address" },
+      { "indexed": false, "name": "timestamp",    "type": "uint256" }
+    ],
+    "name": "CertificateIssued",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true,  "name": "certId",      "type": "bytes32" },
+      { "indexed": true,  "name": "revokedBy",   "type": "address" },
+      { "indexed": false, "name": "timestamp",   "type": "uint256" }
+    ],
+    "name": "CertificateRevoked",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true,  "name": "wallet",      "type": "address" },
+      { "indexed": false, "name": "name",        "type": "string"  },
+      { "indexed": false, "name": "timestamp",   "type": "uint256" }
+    ],
+    "name": "UniversityApproved",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      { "name": "_wallet", "type": "address" },
+      { "name": "_name",   "type": "string"  }
+    ],
+    "name": "approveUniversity",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "name": "_wallet", "type": "address" }],
+    "name": "revokeUniversity",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "name": "_certId",      "type": "bytes32" },
+      { "name": "_certHash",    "type": "bytes32" },
+      { "name": "_ipfsHash",    "type": "string"  },
+      { "name": "_metaURI",     "type": "string"  }
+    ],
+    "name": "issueCertificate",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "name": "_certId", "type": "bytes32" }],
+    "name": "revokeCertificate",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "name": "_certId",      "type": "bytes32" },
+      { "name": "_hashToCheck", "type": "bytes32" }
+    ],
+    "name": "verifyCertificate",
+    "outputs": [
+      { "name": "valid",   "type": "bool" },
+      { "name": "revoked", "type": "bool" },
+      {
+        "components": [
+          { "name": "certHash",    "type": "bytes32" },
+          { "name": "ipfsHash",    "type": "string"  },
+          { "name": "issuedBy",    "type": "address" },
+          { "name": "issuedAt",    "type": "uint256" },
+          { "name": "isRevoked",   "type": "bool"    },
+          { "name": "metadataURI", "type": "string"  }
+        ],
+        "name": "cert",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalCertificates",
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "name": "_wallet", "type": "address" }],
+    "name": "getUniversityCerts",
+    "outputs": [{ "name": "", "type": "bytes32[]" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "name": "", "type": "bytes32" }],
+    "name": "certificates",
+    "outputs": [
+      { "name": "certHash",    "type": "bytes32" },
+      { "name": "ipfsHash",    "type": "string"  },
+      { "name": "issuedBy",    "type": "address" },
+      { "name": "issuedAt",    "type": "uint256" },
+      { "name": "isRevoked",   "type": "bool"    },
+      { "name": "metadataURI", "type": "string"  }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "name": "", "type": "address" }],
+    "name": "universities",
+    "outputs": [
+      { "name": "name",         "type": "string"  },
+      { "name": "approved",     "type": "bool"    },
+      { "name": "wallet",       "type": "address" },
+      { "name": "registeredAt", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [{ "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

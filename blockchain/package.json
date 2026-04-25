@@ -1,0 +1,21 @@
+{
+  "name": "securedtrust-blockchain",
+  "version": "1.0.0",
+  "description": "SecuredTrust Smart Contracts - Hardhat Project",
+  "scripts": {
+    "compile":  "npx hardhat compile",
+    "test":     "npx hardhat test",
+    "deploy:local":   "npx hardhat run scripts/deploy.js --network localhost",
+    "deploy:testnet": "npx hardhat run scripts/deploy.js --network polygon_mumbai",
+    "deploy:mainnet": "npx hardhat run scripts/deploy.js --network polygon_mainnet",
+    "node":     "npx hardhat node"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.19.3"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.1",
+    "dotenv": "^16.3.1"
+  }
+}

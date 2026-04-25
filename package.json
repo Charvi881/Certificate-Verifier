@@ -1,0 +1,20 @@
+{
+  "name": "securedtrust",
+  "version": "1.0.0",
+  "description": "Blockchain-Based Certificate Verification System",
+  "private": true,
+  "scripts": {
+    "install:all":   "cd blockchain && npm install && cd ../backend && npm install && cd ../frontend && npm install",
+    "dev:backend":   "cd backend && npm run dev",
+    "dev:frontend":  "cd frontend && npm run dev",
+    "chain:node":    "cd blockchain && npm run node",
+    "chain:deploy":  "cd blockchain && npm run deploy:local",
+    "chain:test":    "cd blockchain && npm test",
+    "build":         "cd frontend && npm run build"
+  },
+  "workspaces": [
+    "blockchain",
+    "backend",
+    "frontend"
+  ]
+}
