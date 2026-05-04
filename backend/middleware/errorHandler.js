@@ -8,21 +8,27 @@ const generateToken  = (user) => jwt.sign({ id: user._id, role: user.role }, JWT
 const generateRefresh = (user) => jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "7d" });
 
 // ─── Protect Middleware ──────────────────────────────────────────────────────
+
+
 const protect = async (req, res, next) => {
-  const header = req.headers.authorization;
-  if (!header?.startsWith("Bearer ")) return res.status(401).json({ error: "No token provided" });
-  const token = header.split(" ")[1];
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = await User.findById(decoded.id).select("-password");
-    if (!req.user) return res.status(401).json({ error: "User not found" });
-    if (!req.user.isActive) return res.status(403).json({ error: "Account deactivated" });
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(401).json({ error: "Not authorized" });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // ✅ FETCH FULL USER FROM DB
+    const user = await User.findById(decoded.id);
+
+    if (!user) return res.status(401).json({ error: "User not found" });
+
+    req.user = user; // ✅ now includes universityId
+
     next();
-  } catch {
-    res.status(401).json({ error: "Invalid or expired token" });
+  } catch (err) {
+    return res.status(401).json({ error: "Invalid token" });
   }
 };
-
 // ─── Role Guards ─────────────────────────────────────────────────────────────
 const requireRole = (...roles) => (req, res, next) => {
   if (!roles.includes(req.user?.role)) return res.status(403).json({ error: "Insufficient privileges" });

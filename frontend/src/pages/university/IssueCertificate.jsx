@@ -21,21 +21,51 @@ export default function IssueCertificate() {
     onDrop, accept: { "application/pdf": [".pdf"] }, maxFiles: 1
   });
 
-  const submit = async e => {
-    e.preventDefault();
-    if (!file) { toast.error("PDF certificate is required"); return; }
-    setLoading(true);
-    try {
-      const fd = new FormData();
-      fd.append("certificate", file);
-      Object.entries(form).forEach(([k,v]) => { if (v) fd.append(k, k==="skills" ? JSON.stringify(v.split(",").map(s=>s.trim()).filter(Boolean)) : v); });
-      const { data } = await api.post("/university/certificates/issue", fd, { headers: { "Content-Type": "multipart/form-data" } });
-      setIssued(data.certificate);
-      toast.success("Certificate issued on blockchain! ✓");
-    } catch (err) {
-      toast.error(err.response?.data?.error || "Issuance failed");
-    } finally { setLoading(false); }
-  };
+  const submit = async (e) => {
+  e.preventDefault();
+  console.log("SUBMIT START");
+
+  if (!file) {
+    toast.error("PDF certificate is required");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    console.log("BEFORE API CALL");
+
+    const fd = new FormData();
+    fd.append("certificate", file);
+
+    Object.entries(form).forEach(([k, v]) => {
+      if (v) {
+        fd.append(
+          k,
+          k === "skills"
+            ? JSON.stringify(v.split(",").map(s => s.trim()).filter(Boolean))
+            : v
+        );
+      }
+    });
+
+    const { data } = await api.post(
+      "/university/certificates/issue",
+      fd
+    );
+
+    console.log("AFTER API CALL", data);
+
+    setIssued(data.certificate);
+    toast.success("Certificate issued ✓");
+
+  } catch (err) {
+    console.log("ERROR:", err);
+    toast.error(err.response?.data?.error || err.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   if (issued) return (
     <DashboardLayout>

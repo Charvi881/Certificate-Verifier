@@ -40,7 +40,18 @@ router.post("/certificates/issue", upload.single("certificate"), async (req, res
       return res.status(400).json({ error: "Missing required fields" });
 
     // Check university approved
-    const uni = await University.findOne({ _id: req.user.universityId, isApproved: true });
+  if (!req.user.universityId) {
+  return res.status(403).json({ error: "User not linked to any university" });
+}
+
+const uni = await University.findOne({
+  _id: req.user.universityId,
+  isApproved: true,
+});
+
+if (!uni) {
+  return res.status(403).json({ error: "University not approved to issue certificates" });
+}
     if (!uni) return res.status(403).json({ error: "University not approved to issue certificates" });
 
     // Generate SHA-256 hash of the PDF
