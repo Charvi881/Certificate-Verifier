@@ -49,20 +49,18 @@ export default function IssueCertificate() {
       }
     });
 
-    const { data } = await api.post(
-      "/university/certificates/issue",
-      fd
-    );
+    const { data } = await api.post("/university/certificates/issue",fd );
 
     console.log("AFTER API CALL", data);
 
     setIssued(data.certificate);
     toast.success("Certificate issued ✓");
 
-  } catch (err) {
-    console.log("ERROR:", err);
-    toast.error(err.response?.data?.error || err.message);
-  } finally {
+ // In IssueCertificate.jsx submit():
+} catch (err) {
+  console.log("Full error response:", err.response?.status, err.response?.data);
+  toast.error(err.response?.data?.error || err.message);
+} finally {
     setLoading(false);
   }
 };

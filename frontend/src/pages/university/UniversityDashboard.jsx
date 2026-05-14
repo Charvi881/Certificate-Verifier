@@ -412,26 +412,24 @@ function DashboardHome({ uniStatus, stats }) {
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 export default function UniversityApp() {
-  const { user } = useAuth();
-  const [uniData, setUniData] = useState(null);
-  const [loadingUni, setLoadingUni] = useState(true);
-  const [stats,   setStats]   = useState(null);
+  const { user } = useAuth();  // ← user.universityId is ALREADY populated from login
+  const [stats, setStats] = useState(null);
 
   useEffect(() => {
-    // Load university info
-    if (user?.universityId) {
-      api.get("/university/stats").then(({ data }) => setStats(data.stats)).catch(() => {});
-    }
-    // Check approval status via user's university
-    api.get("/auth/me").then(({ data }) => {
-      if (data.user?.universityId) {
-        setUniData(data.user.universityId);
-      }
-    }).catch(() => {});
+    api.get("/university/stats")
+      .then(({ data }) => setStats(data.stats))
+      .catch(() => {});
   }, []);
 
-  // Determine status
-  const uniStatus = uniData?.isApproved ? "approved" : uniData?.rejectedAt ? "rejected" : "pending";
+  // ✅ user.universityId is the full populated University object from login
+  // No extra API call needed — login already populates it
+  const uni = user?.universityId;
+
+  const uniStatus = uni?.isApproved === true
+    ? "approved"
+    : uni?.rejectedAt
+    ? "rejected"
+    : "pending";
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#060b14", color: "#e8f0fe" }}>
@@ -442,9 +440,9 @@ export default function UniversityApp() {
       <Sidebar uniStatus={uniStatus} />
       <main style={{ flex: 1, overflow: "auto" }}>
         <Routes>
-          <Route index                  element={<DashboardHome uniStatus={uniStatus} stats={stats} />} />
-          <Route path="issue"           element={<IssueCertificate uniStatus={uniStatus} />} />
-          <Route path="certificates"    element={<CertificatesList uniStatus={uniStatus} />} />
+          <Route index             element={<DashboardHome uniStatus={uniStatus} stats={stats} />} />
+          <Route path="issue"      element={<IssueCertificate uniStatus={uniStatus} />} />
+          <Route path="certificates" element={<CertificatesList uniStatus={uniStatus} />} />
         </Routes>
       </main>
     </div>

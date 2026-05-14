@@ -10,10 +10,10 @@ module.exports = {
   networks: {
     localhost: { url: "http://127.0.0.1:8545" },
     polygon_mumbai: {
-      url: process.env.POLYGON_RPC_URL || "https://rpc-mumbai.maticvigil.com",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: 80001,
-    },
+  url: process.env.POLYGON_RPC_URL || "https://rpc.ankr.com/polygon_mumbai",
+  accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+  chainId: 80001,
+},
     polygon_mainnet: {
       url: process.env.POLYGON_MAINNET_RPC || "https://polygon-rpc.com",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
