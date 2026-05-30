@@ -80,9 +80,9 @@ export default function LandingPage() {
         <div style={{ position:"absolute", bottom:"-20%", right:"-5%",  width:"50%", height:"50%", background:"radial-gradient(ellipse,rgba(0,120,255,0.06) 0%,transparent 70%)", borderRadius:"50%", pointerEvents:"none" }} />
         <ParticleBg />
         <div style={{ position:"relative", zIndex:2, maxWidth:1100, margin:"0 auto", padding:"80px 24px", textAlign:"center" }}>
-          <div className="fu" style={{ display:"inline-flex", alignItems:"center", gap:8, background:"rgba(0,230,180,0.07)", border:"1px solid rgba(0,230,180,0.18)", borderRadius:20, padding:"6px 16px", fontSize:12, color:"#00e6b4", fontFamily:"'DM Mono',monospace", marginBottom:28 }}>
+          {/* <div className="fu" style={{ display:"inline-flex", alignItems:"center", gap:8, background:"rgba(0,230,180,0.07)", border:"1px solid rgba(0,230,180,0.18)", borderRadius:20, padding:"6px 16px", fontSize:12, color:"#00e6b4", fontFamily:"'DM Mono',monospace", marginBottom:28 }}>
             ⛓ Powered by Ethereum · Polygon · IPFS
-          </div>
+          </div> */}
           <h1 className="fu fu1" style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:"clamp(36px,6vw,68px)", lineHeight:1.08, letterSpacing:"-1.5px", color:"#fff", margin:"0 0 20px" }}>
             Certificates You Can<br />
             <span style={{ background:"linear-gradient(90deg,#00e6b4,#0078ff)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>Trust Forever</span>

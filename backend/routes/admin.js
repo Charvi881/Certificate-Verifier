@@ -114,3 +114,117 @@ router.patch("/users/:id/toggle", async (req, res, next) => {
 });
 
 module.exports = router;
+// ─── GET /api/admin/ledger ────────────────────────────────────────────────────
+// Returns real certificate transactions shaped as blockchain blocks
+router.get("/ledger", async (req, res, next) => {
+  try {
+    const certs = await Certificate.find()
+      .sort("createdAt")
+      .populate("university", "name shortName")
+      .lean();
+
+    // Build blocks: genesis + one block per cert action
+    const blocks = [
+      {
+        blockIndex: 0,
+        type: "GENESIS",
+        hash: "0000000000000000000000000000000000000000",
+        prevHash: "0000000000000000",
+        createdAt: certs[0]?.createdAt || new Date(),
+        recipientName: null,
+        courseName: null,
+        university: null,
+      },
+    ];
+
+    certs.forEach((c, idx) => {
+      const base = {
+        blockIndex: idx + 1,
+        prevHash: blocks[idx].hash,
+        hash: c.certHash || c.txHash || `block_${c._id}`,
+        recipientName: c.recipientName,
+        courseName: c.courseName,
+        university: c.university?.name || c.university?.shortName || "—",
+        year: c.issueDate ? new Date(c.issueDate).getFullYear() : "—",
+        createdAt: c.createdAt,
+        _id: c._id,
+      };
+
+      if (c.status === "revoked") {
+        blocks.push({ ...base, type: "REVOKED" });
+      } else {
+        blocks.push({ ...base, type: "ISSUED" });
+      }
+
+      // Add a VERIFIED block for each verification
+      if (c.verifications > 0) {
+        blocks.push({
+          ...base,
+          blockIndex: blocks.length,
+          type: "VERIFIED",
+          prevHash: base.hash,
+          hash: `verify_${c._id}`,
+          createdAt: c.updatedAt,
+        });
+      }
+    });
+
+    res.json({ blocks, connected: true, total: blocks.length });
+  } catch (err) { next(err); }
+});
+
+// ─── GET /api/admin/network ───────────────────────────────────────────────────
+// Returns nodes (universities + admin) and recent activity
+router.get("/network", async (req, res, next) => {
+  try {
+    const [unis, recentCerts] = await Promise.all([
+      University.find().lean(),
+      Certificate.find()
+        .sort("-createdAt")
+        .limit(20)
+        .populate("university", "name shortName")
+        .lean(),
+    ]);
+
+    // Build node list
+    const nodes = [
+      {
+        _id: "admin-node",
+        nodeId: "node-admin-01",
+        name: "Admin Node",
+        type: "admin",
+        status: "online",
+        synced: true,
+        blockHeight: recentCerts.length + 1,
+        certsIssued: recentCerts.length,
+        lastPing: new Date(),
+        endpoint: "internal",
+      },
+      ...unis.map((u, i) => ({
+        _id: u._id,
+        nodeId: `node-univ-${String(i + 2).padStart(2, "0")}`,
+        name: u.shortName || u.name,
+        type: "university",
+        status: u.isApproved ? "online" : "offline",
+        synced: u.isApproved,
+        blockHeight: u.isApproved ? recentCerts.length + 1 : Math.max(0, recentCerts.length - 2),
+        certsIssued: u.totalIssued || 0,
+        lastPing: u.updatedAt,
+        endpoint: u.walletAddress
+          ? u.walletAddress.slice(0, 10) + "…"
+          : "pending",
+      })),
+    ];
+
+    // Build activity feed from recent certs
+    const activity = recentCerts.map((c) => ({
+      type: c.status === "revoked" ? "REVOKED" : "ISSUED",
+      actor: c.university?.name || c.university?.shortName || "System",
+      recipientName: c.recipientName,
+      hash: c.certHash || c.txHash || String(c._id),
+      createdAt: c.createdAt,
+    }));
+
+    res.json({ nodes, activity, connected: true });
+  } catch (err) { next(err); }
+});

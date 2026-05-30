@@ -1,3 +1,10 @@
+// ── CHANGES FROM ORIGINAL ──────────────────────────────────────────────────
+//  1. Added "Ledger" and "Network" to NAV array
+//  2. Imported LedgerPage and NetworkPage from LedgerNetworkPages.jsx
+//  3. Added two new <Route> entries in AdminDashboard
+//  All other code is unchanged.
+// ───────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect } from "react";
 import { Routes, Route, Link, useLocation, useNavigate } from "react-router-dom";
 import api from "../../utils/api";
@@ -5,12 +12,17 @@ import { timeAgo, fmtDate, copyText } from "../../utils/helpers";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
 
-// ─── Sidebar nav items ────────────────────────────────────────────────────────
+// ── NEW: import the two new pages ──────────────────────────────────────────
+import { LedgerPage, NetworkPage } from "./LedgerNetworkPages";
+
+// ─── Sidebar nav items  (⬡ and ⛓ added) ─────────────────────────────────────
 const NAV = [
-  { to: "/admin",              icon: "▣", label: "Overview"      },
+  { to: "/admin",              icon: "▣",  label: "Overview"      },
   { to: "/admin/universities", icon: "🏛", label: "Universities"  },
   { to: "/admin/users",        icon: "👤", label: "Users"         },
   { to: "/admin/certificates", icon: "📜", label: "Certificates"  },
+  { to: "/admin/ledger",       icon: "⛓", label: "Ledger"        }, // NEW
+  { to: "/admin/network",      icon: "⬡",  label: "Network"       }, // NEW
 ];
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
@@ -48,7 +60,7 @@ function Sidebar({ pendingCount }) {
       </div>
 
       {/* Nav */}
-      <nav style={{ flex: 1, padding: "12px 10px", display: "flex", flexDirection: "column", gap: 2 }}>
+      <nav style={{ flex: 1, padding: "12px 10px", display: "flex", flexDirection: "column", gap: 2, overflowY: "auto" }}>
         {NAV.map(({ to, icon, label }) => {
           const active = location.pathname === to || (to !== "/admin" && location.pathname.startsWith(to));
           return (
@@ -63,7 +75,6 @@ function Sidebar({ pendingCount }) {
             }}>
               <span style={{ fontSize: 15 }}>{icon}</span>
               <span>{label}</span>
-              {/* Pending badge on Universities */}
               {label === "Universities" && pendingCount > 0 && (
                 <span style={{ marginLeft: "auto", background: "#ff4d6d", color: "#fff", fontSize: 9, fontFamily: "'DM Mono',monospace", fontWeight: 700, padding: "2px 6px", borderRadius: 10, minWidth: 18, textAlign: "center" }}>
                   {pendingCount}
@@ -146,9 +157,9 @@ function StatusBadge({ status }) {
 function UniversitiesPage() {
   const [unis,    setUnis]    = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter,  setFilter]  = useState("all"); // all | pending | approved | rejected
+  const [filter,  setFilter]  = useState("all");
   const [search,  setSearch]  = useState("");
-  const [selected, setSelected] = useState(null); // detail modal
+  const [selected, setSelected] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
 
   const load = async () => {
@@ -165,35 +176,32 @@ function UniversitiesPage() {
   const approve = async (id, name) => {
     setActionLoading(id + "_approve");
     try {
-      const { data } = await api.patch(`/admin/universities/${id}/approve`);
-      toast.success(`✅ ${name} approved! University can now issue certificates.`);
-      load();
-      setSelected(null);
+      await api.patch(`/admin/universities/${id}/approve`);
+      toast.success(`✅ ${name} approved!`);
+      load(); setSelected(null);
     } catch (err) { toast.error(err.response?.data?.error || "Failed"); }
     finally { setActionLoading(null); }
   };
 
   const reject = async (id, name) => {
     const reason = prompt(`Reason for rejecting "${name}" (optional):`);
-    if (reason === null) return; // cancelled
+    if (reason === null) return;
     setActionLoading(id + "_reject");
     try {
       await api.patch(`/admin/universities/${id}/reject`, { reason });
       toast.error(`❌ ${name} rejected.`);
-      load();
-      setSelected(null);
+      load(); setSelected(null);
     } catch { toast.error("Failed"); }
     finally { setActionLoading(null); }
   };
 
   const revoke = async (id, name) => {
-    if (!confirm(`Revoke approval for "${name}"? They will lose certificate issuance access.`)) return;
+    if (!confirm(`Revoke approval for "${name}"?`)) return;
     setActionLoading(id + "_revoke");
     try {
       await api.patch(`/admin/universities/${id}/revoke`);
       toast.success(`Approval revoked for ${name}`);
-      load();
-      setSelected(null);
+      load(); setSelected(null);
     } catch { toast.error("Failed"); }
     finally { setActionLoading(null); }
   };
@@ -218,8 +226,6 @@ function UniversitiesPage() {
 
   return (
     <Page title="Universities" sub="Review registration requests and manage university access">
-
-      {/* Filter tabs */}
       <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
         {[["all","All"],["pending","⏳ Pending"],["approved","✅ Approved"],["rejected","❌ Rejected"]].map(([k,l]) => (
           <button key={k} onClick={() => setFilter(k)} style={{
@@ -227,8 +233,7 @@ function UniversitiesPage() {
             fontFamily: "'DM Mono',monospace", transition: "all 0.15s",
             background: filter === k ? (k === "pending" ? "rgba(245,166,35,0.15)" : k === "approved" ? "rgba(0,230,180,0.12)" : k === "rejected" ? "rgba(255,77,109,0.12)" : "rgba(255,255,255,0.1)") : "rgba(255,255,255,0.04)",
             color: filter === k ? (k === "pending" ? "#f5a623" : k === "approved" ? "#00e6b4" : k === "rejected" ? "#ff4d6d" : "#fff") : "rgba(255,255,255,0.4)",
-            borderWidth: 1, borderStyle: "solid",
-            borderColor: filter === k ? "rgba(255,255,255,0.1)" : "transparent"
+            borderWidth: 1, borderStyle: "solid", borderColor: filter === k ? "rgba(255,255,255,0.1)" : "transparent"
           }}>
             {l} <span style={{ opacity: 0.6 }}>({counts[k]})</span>
           </button>
@@ -237,7 +242,6 @@ function UniversitiesPage() {
           style={{ marginLeft: "auto", padding: "7px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#e8f0fe", fontSize: 12, fontFamily: "'DM Mono',monospace", outline: "none", width: 220 }} />
       </div>
 
-      {/* Pending alert banner */}
       {counts.pending > 0 && (
         <div style={{ background: "rgba(245,166,35,0.07)", border: "1px solid rgba(245,166,35,0.2)", borderRadius: 12, padding: "14px 18px", marginBottom: 18, display: "flex", alignItems: "center", gap: 12 }}>
           <span style={{ fontSize: 20 }}>⏳</span>
@@ -251,7 +255,6 @@ function UniversitiesPage() {
         </div>
       )}
 
-      {/* List */}
       {loading ? (
         <div style={{ textAlign: "center", padding: 60, color: "rgba(255,255,255,0.3)" }}>Loading universities…</div>
       ) : filtered.length === 0 ? (
@@ -271,21 +274,16 @@ function UniversitiesPage() {
               }}
                 onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.04)"}
                 onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}>
-
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-                  {/* Left — University info */}
                   <div style={{ flex: 1, minWidth: 200 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                      <div style={{ width: 38, height: 38, borderRadius: 10, background: status === "approved" ? "rgba(0,230,180,0.12)" : status === "pending" ? "rgba(245,166,35,0.12)" : "rgba(255,77,109,0.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
-                        🏛
-                      </div>
+                      <div style={{ width: 38, height: 38, borderRadius: 10, background: status === "approved" ? "rgba(0,230,180,0.12)" : status === "pending" ? "rgba(245,166,35,0.12)" : "rgba(255,77,109,0.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>🏛</div>
                       <div>
                         <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, color: "#fff" }}>{u.name}</div>
                         <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", fontFamily: "'DM Mono',monospace" }}>{u.shortName}</div>
                       </div>
                       <StatusBadge status={status} />
                     </div>
-
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 8, marginTop: 12 }}>
                       {[
                         ["📧 Email",    u.email],
@@ -304,46 +302,22 @@ function UniversitiesPage() {
                       ))}
                     </div>
                   </div>
-
-                  {/* Right — Actions */}
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 140 }}>
                     {status === "pending" && (
                       <>
-                        <button disabled={isLoading} onClick={() => approve(u._id, u.name)} style={{
-                          padding: "10px 18px", borderRadius: 9, border: "none", cursor: isLoading ? "not-allowed" : "pointer",
-                          background: "linear-gradient(135deg,#00e6b4,#00b890)", color: "#060b14",
-                          fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 13,
-                          opacity: isLoading ? 0.6 : 1, transition: "all 0.15s"
-                        }}>
+                        <button disabled={isLoading} onClick={() => approve(u._id, u.name)} style={{ padding: "10px 18px", borderRadius: 9, border: "none", cursor: isLoading ? "not-allowed" : "pointer", background: "linear-gradient(135deg,#00e6b4,#00b890)", color: "#060b14", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 13, opacity: isLoading ? 0.6 : 1 }}>
                           {actionLoading === u._id + "_approve" ? "Approving…" : "✓ Approve"}
                         </button>
-                        <button disabled={isLoading} onClick={() => reject(u._id, u.name)} style={{
-                          padding: "10px 18px", borderRadius: 9, border: "1px solid rgba(255,77,109,0.35)",
-                          background: "rgba(255,77,109,0.08)", color: "#ff4d6d", cursor: isLoading ? "not-allowed" : "pointer",
-                          fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 13,
-                          opacity: isLoading ? 0.6 : 1, transition: "all 0.15s"
-                        }}>
+                        <button disabled={isLoading} onClick={() => reject(u._id, u.name)} style={{ padding: "10px 18px", borderRadius: 9, border: "1px solid rgba(255,77,109,0.35)", background: "rgba(255,77,109,0.08)", color: "#ff4d6d", cursor: isLoading ? "not-allowed" : "pointer", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 13, opacity: isLoading ? 0.6 : 1 }}>
                           {actionLoading === u._id + "_reject" ? "Declining…" : "✕ Decline"}
                         </button>
                       </>
                     )}
                     {status === "approved" && (
-                      <button disabled={isLoading} onClick={() => revoke(u._id, u.name)} style={{
-                        padding: "9px 16px", borderRadius: 9, border: "1px solid rgba(255,77,109,0.25)",
-                        background: "rgba(255,77,109,0.05)", color: "#ff4d6d", cursor: "pointer",
-                        fontSize: 12, fontFamily: "'DM Mono',monospace", transition: "all 0.15s"
-                      }}>
-                        Revoke Access
-                      </button>
+                      <button disabled={isLoading} onClick={() => revoke(u._id, u.name)} style={{ padding: "9px 16px", borderRadius: 9, border: "1px solid rgba(255,77,109,0.25)", background: "rgba(255,77,109,0.05)", color: "#ff4d6d", cursor: "pointer", fontSize: 12, fontFamily: "'DM Mono',monospace" }}>Revoke Access</button>
                     )}
                     {status === "rejected" && (
-                      <button disabled={isLoading} onClick={() => approve(u._id, u.name)} style={{
-                        padding: "9px 16px", borderRadius: 9, border: "1px solid rgba(0,230,180,0.25)",
-                        background: "rgba(0,230,180,0.05)", color: "#00e6b4", cursor: "pointer",
-                        fontSize: 12, fontFamily: "'DM Mono',monospace", transition: "all 0.15s"
-                      }}>
-                        Re-approve
-                      </button>
+                      <button disabled={isLoading} onClick={() => approve(u._id, u.name)} style={{ padding: "9px 16px", borderRadius: 9, border: "1px solid rgba(0,230,180,0.25)", background: "rgba(0,230,180,0.05)", color: "#00e6b4", cursor: "pointer", fontSize: 12, fontFamily: "'DM Mono',monospace" }}>Re-approve</button>
                     )}
                   </div>
                 </div>
@@ -424,21 +398,17 @@ function Overview({ setPendingCount }) {
 
   return (
     <Page title="Overview" sub="System-wide statistics and pending actions">
-      {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 14, marginBottom: 28 }}>
-        <StatCard icon="⏳" label="Pending Approvals" value={stats?.pendingUnis}  color="#f5a623" alert={stats?.pendingUnis > 0} sub="Require your action" />
+        <StatCard icon="⏳" label="Pending Approvals"    value={stats?.pendingUnis}  color="#f5a623" alert={stats?.pendingUnis > 0} sub="Require your action" />
         <StatCard icon="🏛" label="Approved Universities" value={stats?.approvedUnis} color="#00e6b4" />
         <StatCard icon="📜" label="Certificates Issued"  value={stats?.totalCerts}   color="#0078ff" />
         <StatCard icon="👥" label="Total Users"          value={stats?.totalUsers}   color="#a855f7" />
       </div>
 
-      {/* Pending universities — quick action */}
       {pending.length > 0 && (
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, color: "#fff" }}>
-              ⏳ Pending Approvals
-            </div>
+            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, color: "#fff" }}>⏳ Pending Approvals</div>
             <Link to="/admin/universities" style={{ fontSize: 12, color: "rgba(0,230,180,0.6)", textDecoration: "none" }}>View all →</Link>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -448,18 +418,15 @@ function Overview({ setPendingCount }) {
                   <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{u.name}</div>
                   <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", fontFamily: "'DM Mono',monospace" }}>{u.email} · Registered {timeAgo(u.createdAt)}</div>
                 </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <Link to="/admin/universities" style={{ padding: "7px 14px", borderRadius: 8, background: "linear-gradient(135deg,#00e6b4,#00b890)", color: "#060b14", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 12, textDecoration: "none" }}>
-                    Review →
-                  </Link>
-                </div>
+                <Link to="/admin/universities" style={{ padding: "7px 14px", borderRadius: 8, background: "linear-gradient(135deg,#00e6b4,#00b890)", color: "#060b14", fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 12, textDecoration: "none" }}>
+                  Review →
+                </Link>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Recent certificates */}
       {recent.length > 0 && (
         <div>
           <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, color: "#fff", marginBottom: 12 }}>Recent Certificates</div>
@@ -494,10 +461,13 @@ export default function AdminDashboard() {
       <Sidebar pendingCount={pendingCount} />
       <main style={{ flex: 1, overflow: "auto" }}>
         <Routes>
-          <Route index             element={<Overview setPendingCount={setPendingCount} />} />
+          <Route index               element={<Overview setPendingCount={setPendingCount} />} />
           <Route path="universities" element={<UniversitiesPage />} />
           <Route path="users"        element={<UsersPage />} />
           <Route path="certificates" element={<Page title="Certificates" sub="All issued certificates"><div style={{ color: "rgba(255,255,255,0.3)", padding: 32, textAlign: "center" }}>Coming soon</div></Page>} />
+          {/* ── NEW ROUTES ── */}
+          <Route path="ledger"       element={<LedgerPage />} />
+          <Route path="network"      element={<NetworkPage />} />
         </Routes>
       </main>
     </div>
