@@ -5,6 +5,34 @@ const upload  = require("../middleware/upload");
 const { hashBuffer } = require("../utils/ipfs");
 const { verifyCertificateOnChain } = require("../utils/blockchain");
 
+// ─── Helper: build a safe public cert object ─────────────────────────────────
+// For revoked certs we deliberately omit sensitive on-chain proof fields
+// so the response can't be repurposed to fake a "verified" display.
+function buildCertResponse(cert, status) {
+  const isRevoked = status === "REVOKED";
+  return {
+    // Always include identity fields
+    certId:        cert.certId,
+    recipientName: cert.recipientName,
+    courseName:    cert.courseName,
+    university:    cert.university,
+    issueDate:     cert.issueDate,
+    grade:         isRevoked ? undefined : cert.grade,
+    network:       cert.network,
+    skills:        isRevoked ? undefined : cert.skills,
+    // Revocation info — only present when revoked
+    revokedAt:     isRevoked ? cert.revokedAt     : undefined,
+    revokeReason:  isRevoked ? cert.revokeReason  : undefined,
+    // On-chain proof — omit for revoked so UI can't render a "valid-looking" card
+    txHash:        isRevoked ? undefined : cert.txHash,
+    ipfsHash:      isRevoked ? undefined : cert.ipfsHash,
+    blockNumber:   isRevoked ? undefined : cert.blockNumber,
+    certHash:      isRevoked ? undefined : cert.certHash,
+    expiryDate:    cert.expiryDate,
+    verifications: cert.verifications,
+  };
+}
+
 // POST /api/verifier/verify/upload — verify by uploading the original PDF
 router.post("/verify/upload", upload.single("certificate"), async (req, res, next) => {
   try {
@@ -12,34 +40,39 @@ router.post("/verify/upload", upload.single("certificate"), async (req, res, nex
 
     const uploadedHash = hashBuffer(req.file.buffer);
 
-    // Find in DB by hash
     const cert = await Certificate.findOne({ certHash: uploadedHash })
       .populate("university", "name shortName website location logo");
 
     if (!cert) {
       return res.json({
-        status: "NOT_FOUND",
-        valid:  false,
+        status:  "NOT_FOUND",
+        valid:   false,
         message: "No matching certificate found. This document may be tampered or never registered.",
         uploadedHash,
       });
     }
 
-    // Cross-check with blockchain
+    const expired  = cert.expiryDate && new Date(cert.expiryDate) < new Date();
+    const status   = cert.status === "revoked" ? "REVOKED" : expired ? "EXPIRED" : "VERIFIED";
+    const isValid  = status === "VERIFIED";
+
+    // Only increment verification counter for valid certs
+    if (isValid) {
+      await Certificate.findByIdAndUpdate(cert._id, { $inc: { verifications: 1 } });
+    }
+
+    // Only attempt blockchain cross-check for valid certs
     let blockchainResult = null;
-    try { blockchainResult = await verifyCertificateOnChain(cert.certId, uploadedHash); } catch (e) {}
-
-    // Increment verification count
-    await Certificate.findByIdAndUpdate(cert._id, { $inc: { verifications: 1 } });
-
-    const expired = cert.expiryDate && new Date(cert.expiryDate) < new Date();
+    if (isValid) {
+      try { blockchainResult = await verifyCertificateOnChain(cert.certId, uploadedHash); } catch (e) {}
+    }
 
     res.json({
-      status:      cert.status === "revoked" ? "REVOKED" : expired ? "EXPIRED" : "VERIFIED",
-      valid:       cert.status === "issued" && !expired,
-      certificate: cert,
-      blockchain:  blockchainResult,
-      uploadedHash,
+      status,
+      valid:       isValid,
+      certificate: buildCertResponse(cert, status),
+      blockchain:  isValid ? blockchainResult : null,
+      uploadedHash: isValid ? uploadedHash : undefined,
       verifiedAt:  new Date().toISOString(),
     });
   } catch (err) { next(err); }
@@ -54,18 +87,24 @@ router.get("/verify/:certId", async (req, res, next) => {
     if (!cert) return res.json({ status: "NOT_FOUND", valid: false, message: "Certificate ID not found" });
 
     const expired = cert.expiryDate && new Date(cert.expiryDate) < new Date();
-    await Certificate.findByIdAndUpdate(cert._id, { $inc: { verifications: 1 } });
+    const status  = cert.status === "revoked" ? "REVOKED" : expired ? "EXPIRED" : "VERIFIED";
+    const isValid = status === "VERIFIED";
+
+    // Only increment verification counter for valid certs
+    if (isValid) {
+      await Certificate.findByIdAndUpdate(cert._id, { $inc: { verifications: 1 } });
+    }
 
     res.json({
-      status:      cert.status === "revoked" ? "REVOKED" : expired ? "EXPIRED" : "VERIFIED",
-      valid:       cert.status === "issued" && !expired,
-      certificate: cert,
+      status,
+      valid:       isValid,
+      certificate: buildCertResponse(cert, status),
       verifiedAt:  new Date().toISOString(),
     });
   } catch (err) { next(err); }
 });
 
-// GET /api/verifier/search — search public certificates
+// GET /api/verifier/search — search public certificates (issued only)
 router.get("/search", async (req, res, next) => {
   try {
     const { q } = req.query;

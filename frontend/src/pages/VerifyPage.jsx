@@ -193,7 +193,42 @@ export default function VerifyPage() {
               </button>
             </div>
 
-            {cert && (
+            {/* ── REVOKED: show revocation notice, no cert details ── */}
+            {cert && result.status === "REVOKED" && (
+              <div style={{ background:"rgba(255,77,109,0.05)", border:"1px solid rgba(255,77,109,0.2)", borderRadius:14, padding:"22px 24px" }}>
+                <div style={{ display:"flex", alignItems:"flex-start", gap:14 }}>
+                  <div style={{ width:40, height:40, borderRadius:10, background:"rgba(255,77,109,0.1)", border:"1px solid rgba(255,77,109,0.25)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>🚫</div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:16, color:"#ff4d6d", marginBottom:4 }}>This certificate has been revoked</div>
+                    <div style={{ fontSize:13, color:"rgba(232,240,254,0.5)", marginBottom:16, lineHeight:1.5 }}>
+                      It was issued to <strong style={{ color:"rgba(232,240,254,0.8)" }}>{cert.recipientName}</strong> for <strong style={{ color:"rgba(232,240,254,0.8)" }}>{cert.courseName}</strong> by {cert.university?.name || "the issuing institution"}, but has since been invalidated and is no longer accepted as proof of qualification.
+                    </div>
+                    <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:8, marginBottom: cert.revokeReason ? 14 : 0 }}>
+                      {[
+                        ["Certificate ID", cert.certId],
+                        ["Issued To",      cert.recipientName],
+                        ["Issue Date",     fmtDate(cert.issueDate)],
+                        ["Revoked On",     cert.revokedAt ? fmtDate(cert.revokedAt) : "—"],
+                      ].map(([k,v]) => (
+                        <div key={k} style={{ background:"rgba(0,0,0,0.25)", borderRadius:7, padding:"8px 11px" }}>
+                          <div style={{ fontSize:9, fontFamily:"'DM Mono',monospace", color:"rgba(255,77,109,0.5)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:2 }}>{k}</div>
+                          <div style={{ fontSize:12, color:"rgba(232,240,254,0.65)" }}>{v || "—"}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {cert.revokeReason && (
+                      <div style={{ background:"rgba(255,77,109,0.08)", border:"1px solid rgba(255,77,109,0.15)", borderRadius:8, padding:"10px 14px" }}>
+                        <div style={{ fontSize:9, fontFamily:"'DM Mono',monospace", color:"rgba(255,77,109,0.5)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3 }}>Reason for Revocation</div>
+                        <div style={{ fontSize:13, color:"#ff4d6d" }}>{cert.revokeReason}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── VERIFIED / EXPIRED: show full cert details ── */}
+            {cert && result.status !== "REVOKED" && (
               <>
                 {/* Certificate details */}
                 <div style={{ background:"rgba(12,18,32,0.9)", border:`1px solid ${meta.color}20`, borderRadius:16, padding:24, marginBottom:14 }}>
@@ -208,7 +243,7 @@ export default function VerifyPage() {
                       ["Issue Date",   fmtDate(cert.issueDate)],
                       ["Expiry Date",  fmtDate(cert.expiryDate)],
                       ["Network",      cert.network || "—"],
-                      ["Verified",     result.verifications?.toLocaleString() + "×" || "—"],
+                      ["Verified",     cert.verifications?.toLocaleString() + "×" || "—"],
                     ].map(([k,v]) => (
                       <div key={k} style={{ background:"rgba(0,0,0,0.2)", borderRadius:8, padding:"10px 12px" }}>
                         <div style={{ fontSize:10, color:"rgba(232,240,254,0.3)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:3, fontFamily:"'DM Mono',monospace" }}>{k}</div>

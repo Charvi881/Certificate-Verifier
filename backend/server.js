@@ -11,6 +11,7 @@ const adminRoutes       = require("./routes/admin");
 const universityRoutes  = require("./routes/university");
 const verifierRoutes    = require("./routes/verifier");
 const { errorHandler }  = require("./middleware/errorHandler");
+const { initBlockchain } = require("./utils/blockchain");
 
 const app  = express();
 const PORT = process.env.PORT || 5000;
@@ -49,6 +50,7 @@ app.use(errorHandler);
 mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost:27017/securedtrust")
   .then(() => {
     console.log("✅ MongoDB connected");
+    initBlockchain();
     app.listen(PORT, () => console.log(`🚀 SecuredTrust API running on port ${PORT}`));
   })
   .catch(err => { console.error("❌ MongoDB connection failed:", err.message); process.exit(1); });

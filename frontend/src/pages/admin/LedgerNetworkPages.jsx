@@ -303,40 +303,94 @@ export function LedgerPage() {
                   {/* Expanded detail */}
                   {isOpen && (
                     <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10, marginBottom: 14 }}>
+
+                      {/* ── Transaction status bar ── */}
+                      {b.type !== "GENESIS" && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, padding: "10px 14px", borderRadius: 9, background: b.txHash ? "rgba(0,230,180,0.05)" : "rgba(245,166,35,0.05)", border: `1px solid ${b.txHash ? "rgba(0,230,180,0.12)" : "rgba(245,166,35,0.12)"}` }}>
+                          <span style={{ width: 8, height: 8, borderRadius: "50%", background: b.txHash ? "#00e6b4" : "#f5a623", flexShrink: 0, boxShadow: b.txHash ? "0 0 6px #00e6b4" : "none" }} />
+                          <span style={{ fontSize: 11, fontFamily: "'DM Mono',monospace", color: b.txHash ? "#00e6b4" : "#f5a623", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                            {b.txHash ? "Confirmed on-chain" : "Off-chain / pending"}
+                          </span>
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginLeft: 4 }}>
+                            {b.network ? `· ${b.network}` : ""}
+                          </span>
+                          {b.explorerUrl && (
+                            <a
+                              href={b.explorerUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 12px", borderRadius: 7, background: "rgba(130,80,255,0.1)", border: "1px solid rgba(130,80,255,0.25)", color: "#a855f7", fontSize: 11, fontFamily: "'DM Mono',monospace", textDecoration: "none", transition: "all 0.15s" }}
+                            >
+                              <span>⬡</span> View on PolygonScan ↗
+                            </a>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ── Info grid ── */}
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10, marginBottom: 14 }}>
                         {[
-                          ["Block Index",   `#${b.blockIndex ?? i}`],
-                          ["Timestamp",     fmtDate ? fmtDate(b.createdAt || b.timestamp) : (b.createdAt || b.timestamp || "—")],
-                          ["Recipient",     b.recipientName || b.name || "—"],
-                          ["Course",        b.courseName || b.course || "—"],
-                          ["University",    b.university || "—"],
-                          ["Issued Year",   b.year || "—"],
+                          ["Block Index",    `#${b.blockIndex ?? i}`],
+                          ["Timestamp",      b.createdAt ? new Date(b.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—"],
+                          ["Recipient",      b.recipientName || b.name || "—"],
+                          ["Course",         b.courseName || b.course || "—"],
+                          ["University",     b.university || "—"],
+                          ["Issued By",      b.issuedBy || "—"],
+                          ["Block Number",   b.blockNumber ? `#${b.blockNumber}` : "—"],
+                          ["Tx Status",      b.txStatus || "—"],
                         ].map(([k, v]) => (
                           <div key={k} style={{ background: "rgba(0,0,0,0.25)", borderRadius: 8, padding: "8px 12px" }}>
                             <div style={{ fontSize: 9, fontFamily: "'DM Mono',monospace", color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{k}</div>
-                            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.75)" }}>{v}</div>
+                            <div style={{ fontSize: 12, color: k === "Tx Status" ? (b.txHash ? "#00e6b4" : "#f5a623") : "rgba(255,255,255,0.75)" }}>{v}</div>
                           </div>
                         ))}
                       </div>
 
-                      {/* Hashes */}
+                      {/* ── Wallet address ── */}
+                      {b.walletAddress && (
+                        <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+                          <div style={{ fontSize: 9, fontFamily: "'DM Mono',monospace", color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0, width: 100 }}>Wallet Addr</div>
+                          <code style={{ flex: 1, fontSize: 11, fontFamily: "'DM Mono',monospace", color: "#a855f7", wordBreak: "break-all" }}>{b.walletAddress}</code>
+                          <button onClick={e => { e.stopPropagation(); handleCopy(b.walletAddress); }} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(168,85,247,0.2)", background: "rgba(168,85,247,0.06)", color: "rgba(168,85,247,0.7)", fontSize: 10, cursor: "pointer", fontFamily: "'DM Mono',monospace", flexShrink: 0 }}>copy</button>
+                          <a href={`https://mumbai.polygonscan.com/address/${b.walletAddress}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(168,85,247,0.2)", background: "rgba(168,85,247,0.06)", color: "#a855f7", fontSize: 10, fontFamily: "'DM Mono',monospace", textDecoration: "none", flexShrink: 0 }}>↗</a>
+                        </div>
+                      )}
+
+                      {/* ── Tx hash + chain hashes ── */}
                       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {b.txHash && (
+                          <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+                            <div style={{ fontSize: 9, fontFamily: "'DM Mono',monospace", color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0, width: 100 }}>Tx Hash</div>
+                            <code style={{ flex: 1, fontSize: 11, fontFamily: "'DM Mono',monospace", color: "#f5a623", wordBreak: "break-all" }}>{b.txHash}</code>
+                            <button onClick={e => { e.stopPropagation(); handleCopy(b.txHash); }} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(245,166,35,0.2)", background: "rgba(245,166,35,0.06)", color: "rgba(245,166,35,0.7)", fontSize: 10, cursor: "pointer", fontFamily: "'DM Mono',monospace", flexShrink: 0 }}>copy</button>
+                            {b.explorerUrl && (
+                              <a href={b.explorerUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(168,85,247,0.2)", background: "rgba(168,85,247,0.06)", color: "#a855f7", fontSize: 10, fontFamily: "'DM Mono',monospace", textDecoration: "none", flexShrink: 0 }}>↗ scan</a>
+                            )}
+                          </div>
+                        )}
                         {[
                           ["Prev Hash", b.prevHash, "rgba(168,85,247,0.6)"],
-                          ["This Hash", b.hash,     "#00e6b4"],
+                          ["Cert Hash", b.hash,     "#00e6b4"],
                         ].map(([label, hash, color]) => (
                           <div key={label} style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 12 }}>
-                            <div style={{ fontSize: 9, fontFamily: "'DM Mono',monospace", color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0, width: 70 }}>{label}</div>
+                            <div style={{ fontSize: 9, fontFamily: "'DM Mono',monospace", color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0, width: 100 }}>{label}</div>
                             <code style={{ flex: 1, fontSize: 11, fontFamily: "'DM Mono',monospace", color, wordBreak: "break-all" }}>{hash || "0000000000000000"}</code>
                             <button
                               onClick={e => { e.stopPropagation(); handleCopy(hash); }}
                               style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", fontSize: 10, cursor: "pointer", fontFamily: "'DM Mono',monospace", flexShrink: 0 }}
-                            >
-                              copy
-                            </button>
+                            >copy</button>
                           </div>
                         ))}
                       </div>
+
+                      {/* ── Revoke reason ── */}
+                      {b.type === "REVOKED" && b.revokeReason && (
+                        <div style={{ marginTop: 10, background: "rgba(255,77,109,0.07)", border: "1px solid rgba(255,77,109,0.18)", borderRadius: 8, padding: "10px 14px" }}>
+                          <div style={{ fontSize: 9, fontFamily: "'DM Mono',monospace", color: "rgba(255,77,109,0.5)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>Revoke Reason</div>
+                          <div style={{ fontSize: 12, color: "#ff4d6d" }}>{b.revokeReason}</div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -661,13 +715,18 @@ function NetworkTopology({ nodes }) {
 
 // ─── Demo data (used when API is unavailable) ─────────────────────────────────
 const now = new Date().toISOString();
+const DEMO_TX1 = "0x4a3d2c1b0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2";
+const DEMO_TX2 = "0x1f2e3d4c5b6a7988706050403020100f1e2d3c4b5a6978695847362514031201f";
+const DEMO_WALLET = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e";
+const DEMO_EXPLORER = "https://mumbai.polygonscan.com";
+
 const DEMO_BLOCKS = [
-  { blockIndex: 0, type: "GENESIS", hash: "0000abc123def456", prevHash: "0000000000000000", createdAt: now, recipientName: null, courseName: null, university: null },
-  { blockIndex: 1, type: "ISSUED",  hash: "a1b2c3d4e5f67890abcd1234", prevHash: "0000abc123def456", createdAt: now, recipientName: "Priya Sharma",  courseName: "B.Tech CSE",     university: "IIT Delhi",  year: "2024" },
-  { blockIndex: 2, type: "ISSUED",  hash: "b2c3d4e5f6789012cdef3456", prevHash: "a1b2c3d4e5f67890abcd1234", createdAt: now, recipientName: "Rohan Verma",   courseName: "MBA Finance",     university: "IIM Bangalore", year: "2024" },
-  { blockIndex: 3, type: "VERIFIED",hash: "c3d4e5f67890123defab5678", prevHash: "b2c3d4e5f6789012cdef3456", createdAt: now, recipientName: "Priya Sharma",  courseName: "B.Tech CSE",     university: "IIT Delhi",  year: "2024" },
-  { blockIndex: 4, type: "ISSUED",  hash: "d4e5f678901234abcdef6789", prevHash: "c3d4e5f67890123defab5678", createdAt: now, recipientName: "Anjali Singh",  courseName: "M.Sc Physics",   university: "DU North Campus", year: "2023" },
-  { blockIndex: 5, type: "REVOKED", hash: "e5f67890123456abcdef7890", prevHash: "d4e5f678901234abcdef6789", createdAt: now, recipientName: "Rohan Verma",   courseName: "MBA Finance",     university: "IIM Bangalore", year: "2024" },
+  { blockIndex: 0, type: "GENESIS", hash: "0000000000000000000000000000000000000000", prevHash: "0000000000000000", createdAt: now, recipientName: null, courseName: null, university: null, txHash: null, blockNumber: null, walletAddress: null, network: "mumbai", txStatus: null, explorerUrl: null },
+  { blockIndex: 1, type: "ISSUED",  hash: "a1b2c3d4e5f67890abcd1234ef567890abcd1234", prevHash: "0000000000000000000000000000000000000000", createdAt: now, recipientName: "Priya Sharma",  courseName: "B.Tech CSE",   university: "IIT Delhi",      year: "2024", txHash: DEMO_TX1, blockNumber: 38241901, walletAddress: DEMO_WALLET, network: "mumbai", txStatus: "confirmed", explorerUrl: `${DEMO_EXPLORER}/tx/${DEMO_TX1}`, issuedBy: "IIT Delhi Admin" },
+  { blockIndex: 2, type: "ISSUED",  hash: "b2c3d4e5f6789012cdef3456ab123456cdef7890", prevHash: "a1b2c3d4e5f67890abcd1234ef567890abcd1234", createdAt: now, recipientName: "Rohan Verma",   courseName: "MBA Finance",  university: "IIM Bangalore",  year: "2024", txHash: DEMO_TX2, blockNumber: 38241950, walletAddress: DEMO_WALLET, network: "mumbai", txStatus: "confirmed", explorerUrl: `${DEMO_EXPLORER}/tx/${DEMO_TX2}`, issuedBy: "IIM Admin" },
+  { blockIndex: 3, type: "VERIFIED",hash: "c3d4e5f67890123defab5678cd901234ef567890", prevHash: "b2c3d4e5f6789012cdef3456ab123456cdef7890", createdAt: now, recipientName: "Priya Sharma",  courseName: "B.Tech CSE",   university: "IIT Delhi",      year: "2024", txHash: null, blockNumber: null, walletAddress: DEMO_WALLET, network: "mumbai", txStatus: "read-only", explorerUrl: null },
+  { blockIndex: 4, type: "ISSUED",  hash: "d4e5f678901234abcdef6789de012345ef678901", prevHash: "c3d4e5f67890123defab5678cd901234ef567890", createdAt: now, recipientName: "Anjali Singh",  courseName: "M.Sc Physics", university: "DU North Campus",year: "2023", txHash: null, blockNumber: null, walletAddress: null, network: "mumbai", txStatus: "off-chain", explorerUrl: null, issuedBy: "DU Admin" },
+  { blockIndex: 5, type: "REVOKED", hash: "e5f67890123456abcdef7890ef123456ab789012", prevHash: "d4e5f678901234abcdef6789de012345ef678901", createdAt: now, recipientName: "Rohan Verma",   courseName: "MBA Finance",  university: "IIM Bangalore",  year: "2024", txHash: null, blockNumber: null, walletAddress: DEMO_WALLET, network: "mumbai", txStatus: "off-chain", explorerUrl: null, revokeReason: "Degree invalidated by institution" },
 ];
 
 const DEMO_NODES = [

@@ -142,7 +142,42 @@ export default function VerifierDashboard() {
               <button onClick={reset} style={{ padding:"7px 14px", borderRadius:8, border:"1px solid rgba(255,255,255,0.1)", background:"rgba(255,255,255,0.03)", color:"rgba(232,240,254,0.45)", fontSize:11, cursor:"pointer", fontFamily:"'DM Mono',monospace" }}>← Reset</button>
             </div>
 
-            {cert && (
+            {/* ── REVOKED: block cert details, show revocation notice ── */}
+            {cert && result.status === "REVOKED" && (
+              <div style={{ background:"rgba(255,77,109,0.05)", border:"1px solid rgba(255,77,109,0.2)", borderRadius:14, padding:"20px 22px" }}>
+                <div style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
+                  <div style={{ width:38, height:38, borderRadius:9, background:"rgba(255,77,109,0.1)", border:"1px solid rgba(255,77,109,0.25)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>🚫</div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:15, color:"#ff4d6d", marginBottom:4 }}>Certificate Revoked</div>
+                    <div style={{ fontSize:12, color:"rgba(232,240,254,0.45)", marginBottom:14, lineHeight:1.5 }}>
+                      Issued to <strong style={{ color:"rgba(232,240,254,0.75)" }}>{cert.recipientName}</strong> for <strong style={{ color:"rgba(232,240,254,0.75)" }}>{cert.courseName}</strong> — this certificate has been invalidated by the issuing institution and cannot be accepted.
+                    </div>
+                    <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:8, marginBottom: cert.revokeReason ? 12 : 0 }}>
+                      {[
+                        ["Cert ID",    cert.certId],
+                        ["Issued By",  cert.university?.name || "—"],
+                        ["Issue Date", fmtDate(cert.issueDate)],
+                        ["Revoked On", cert.revokedAt ? fmtDate(cert.revokedAt) : "—"],
+                      ].map(([k,v]) => (
+                        <div key={k} style={{ background:"rgba(0,0,0,0.2)", borderRadius:7, padding:"8px 10px" }}>
+                          <div style={{ fontSize:9, fontFamily:"'DM Mono',monospace", color:"rgba(255,77,109,0.45)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:2 }}>{k}</div>
+                          <div style={{ fontSize:11, color:"rgba(232,240,254,0.6)" }}>{v || "—"}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {cert.revokeReason && (
+                      <div style={{ background:"rgba(255,77,109,0.08)", border:"1px solid rgba(255,77,109,0.15)", borderRadius:7, padding:"9px 12px" }}>
+                        <div style={{ fontSize:9, fontFamily:"'DM Mono',monospace", color:"rgba(255,77,109,0.5)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:2 }}>Reason</div>
+                        <div style={{ fontSize:12, color:"#ff4d6d" }}>{cert.revokeReason}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── VERIFIED / EXPIRED: show full cert details ── */}
+            {cert && result.status !== "REVOKED" && (
               <div style={{ background:"rgba(12,18,32,0.9)", border:`1px solid ${meta.color}18`, borderRadius:14, padding:22 }}>
                 <div style={{ fontSize:10, fontFamily:"'DM Mono',monospace", color:"rgba(0,230,180,0.5)", textTransform:"uppercase", marginBottom:3 }}>Certificate Details</div>
                 <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:20, color:"#fff", marginBottom:1 }}>{cert.recipientName}</div>

@@ -115,56 +115,82 @@ router.patch("/users/:id/toggle", async (req, res, next) => {
 
 module.exports = router;
 // ─── GET /api/admin/ledger ────────────────────────────────────────────────────
-// Returns real certificate transactions shaped as blockchain blocks
 router.get("/ledger", async (req, res, next) => {
   try {
     const certs = await Certificate.find()
       .sort("createdAt")
-      .populate("university", "name shortName")
+      .populate("university", "name shortName walletAddress")
+      .populate("issuedBy", "name email")
       .lean();
 
-    // Build blocks: genesis + one block per cert action
+    const NETWORK = process.env.POLYGON_NETWORK || "mumbai";
+    const EXPLORER = NETWORK === "mainnet"
+      ? "https://polygonscan.com"
+      : "https://mumbai.polygonscan.com";
+
     const blocks = [
       {
-        blockIndex: 0,
-        type: "GENESIS",
-        hash: "0000000000000000000000000000000000000000",
-        prevHash: "0000000000000000",
-        createdAt: certs[0]?.createdAt || new Date(),
+        blockIndex:    0,
+        type:          "GENESIS",
+        hash:          "0000000000000000000000000000000000000000",
+        prevHash:      "0000000000000000",
+        createdAt:     certs[0]?.createdAt || new Date(),
+        txHash:        null,
+        blockNumber:   null,
+        walletAddress: null,
+        network:       NETWORK,
+        txStatus:      null,
+        explorerUrl:   null,
         recipientName: null,
-        courseName: null,
-        university: null,
+        courseName:    null,
+        university:    null,
       },
     ];
 
     certs.forEach((c, idx) => {
+      const explorerUrl = c.txHash ? `${EXPLORER}/tx/${c.txHash}` : null;
       const base = {
-        blockIndex: idx + 1,
-        prevHash: blocks[idx].hash,
-        hash: c.certHash || c.txHash || `block_${c._id}`,
+        blockIndex:    idx + 1,
+        prevHash:      blocks[idx].hash,
+        hash:          c.certHash || c.txHash || `block_${c._id}`,
         recipientName: c.recipientName,
-        courseName: c.courseName,
-        university: c.university?.name || c.university?.shortName || "—",
-        year: c.issueDate ? new Date(c.issueDate).getFullYear() : "—",
-        createdAt: c.createdAt,
-        _id: c._id,
+        courseName:    c.courseName,
+        university:    c.university?.name || c.university?.shortName || "—",
+        walletAddress: c.university?.walletAddress || null,
+        year:          c.issueDate ? new Date(c.issueDate).getFullYear() : "—",
+        createdAt:     c.createdAt,
+        txHash:        c.txHash || null,
+        blockNumber:   c.blockNumber || null,
+        network:       c.network || NETWORK,
+        txStatus:      c.txHash ? "confirmed" : "off-chain",
+        explorerUrl,
+        issuedBy:      c.issuedBy?.name || null,
+        _id:           c._id,
       };
 
       if (c.status === "revoked") {
-        blocks.push({ ...base, type: "REVOKED" });
+        blocks.push({
+          ...base,
+          type:       "REVOKED",
+          revokedAt:  c.revokedAt,
+          revokeReason: c.revokeReason,
+        });
       } else {
         blocks.push({ ...base, type: "ISSUED" });
       }
 
-      // Add a VERIFIED block for each verification
       if (c.verifications > 0) {
         blocks.push({
           ...base,
-          blockIndex: blocks.length,
-          type: "VERIFIED",
-          prevHash: base.hash,
-          hash: `verify_${c._id}`,
-          createdAt: c.updatedAt,
+          blockIndex:  blocks.length,
+          type:        "VERIFIED",
+          prevHash:    base.hash,
+          hash:        `verify_${c._id}`,
+          createdAt:   c.updatedAt,
+          txHash:      null,
+          blockNumber: null,
+          txStatus:    "read-only",
+          explorerUrl: null,
         });
       }
     });
@@ -226,5 +252,37 @@ router.get("/network", async (req, res, next) => {
     }));
 
     res.json({ nodes, activity, connected: true });
+  } catch (err) { next(err); }
+});
+
+
+// ─── GET /api/admin/certificates ─────────────────────────────────────────────
+router.get("/certificates", async (req, res, next) => {
+  try {
+    const certificates = await Certificate.find()
+      .sort("-createdAt")
+      .populate("university", "name shortName")
+      .populate("issuedBy", "name email")
+      .lean();
+    res.json({ certificates });
+  } catch (err) { next(err); }
+});
+
+// ─── PATCH /api/admin/certificates/:id/revoke ─────────────────────────────────
+router.patch("/certificates/:id/revoke", async (req, res, next) => {
+  try {
+    const { reason } = req.body;
+    const cert = await Certificate.findByIdAndUpdate(
+      req.params.id,
+      {
+        status: "revoked",
+        revokedAt: new Date(),
+        revokedBy: req.user._id,
+        revokeReason: reason || "Revoked by admin",
+      },
+      { new: true }
+    ).populate("university", "name shortName");
+    if (!cert) return res.status(404).json({ error: "Certificate not found" });
+    res.json({ certificate: cert, message: "Certificate revoked successfully" });
   } catch (err) { next(err); }
 });

@@ -447,6 +447,256 @@ function Overview({ setPendingCount }) {
   );
 }
 
+// ─── Certificates page ────────────────────────────────────────────────────────
+function CertStatusBadge({ status }) {
+  const map = {
+    issued:  { label: "Issued",  bg: "rgba(0,230,180,0.1)",  color: "#00e6b4", border: "rgba(0,230,180,0.25)"  },
+    revoked: { label: "Revoked", bg: "rgba(255,77,109,0.1)", color: "#ff4d6d", border: "rgba(255,77,109,0.25)" },
+    pending: { label: "Pending", bg: "rgba(245,166,35,0.1)", color: "#f5a623", border: "rgba(245,166,35,0.25)" },
+  };
+  const s = map[status] || map.pending;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 20, background: s.bg, border: `1px solid ${s.border}`, fontSize: 10, color: s.color, fontFamily: "'DM Mono',monospace" }}>
+      <span style={{ width: 5, height: 5, borderRadius: "50%", background: s.color }} />
+      {s.label.toUpperCase()}
+    </span>
+  );
+}
+
+function CertificatesPage() {
+  const [certs,    setCerts]    = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [search,   setSearch]   = useState("");
+  const [filter,   setFilter]   = useState("all");
+  const [page,     setPage]     = useState(1);
+  const [selected, setSelected] = useState(null);
+  const [revoking, setRevoking] = useState(null);
+  const PER_PAGE = 12;
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get("/admin/certificates");
+      setCerts(data.certificates || []);
+    } catch { toast.error("Failed to load certificates"); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleRevoke = async (cert) => {
+    const reason = prompt(`Reason for revoking certificate for "${cert.recipientName}" (optional):`);
+    if (reason === null) return;
+    setRevoking(cert._id);
+    try {
+      await api.patch(`/admin/certificates/${cert._id}/revoke`, { reason });
+      toast.success("Certificate revoked");
+      load(); setSelected(null);
+    } catch (err) { toast.error(err.response?.data?.error || "Failed to revoke"); }
+    finally { setRevoking(null); }
+  };
+
+  const filtered = certs.filter(c => {
+    const matchFilter = filter === "all" || c.status === filter;
+    const q = search.toLowerCase();
+    const matchSearch = !q ||
+      c.recipientName?.toLowerCase().includes(q) ||
+      c.recipientEmail?.toLowerCase().includes(q) ||
+      c.courseName?.toLowerCase().includes(q) ||
+      c.certId?.toLowerCase().includes(q) ||
+      c.university?.name?.toLowerCase().includes(q);
+    return matchFilter && matchSearch;
+  });
+
+  const totalPages = Math.ceil(filtered.length / PER_PAGE);
+  const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+  const counts = {
+    all:     certs.length,
+    issued:  certs.filter(c => c.status === "issued").length,
+    revoked: certs.filter(c => c.status === "revoked").length,
+    pending: certs.filter(c => c.status === "pending").length,
+  };
+
+  return (
+    <Page title="Certificates" sub="All certificates issued across the network">
+      {/* Stats strip */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12, marginBottom: 24 }}>
+        {[
+          { label: "Total",   value: counts.all,     color: "#fff"     },
+          { label: "Issued",  value: counts.issued,  color: "#00e6b4"  },
+          { label: "Revoked", value: counts.revoked, color: "#ff4d6d"  },
+          { label: "Pending", value: counts.pending, color: "#f5a623"  },
+        ].map(s => (
+          <div key={s.label} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "14px 18px" }}>
+            <div style={{ fontSize: 9, fontFamily: "'DM Mono',monospace", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>{s.label}</div>
+            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 26, color: s.color }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filters + search */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
+        {["all","issued","revoked","pending"].map(f => (
+          <button key={f} onClick={() => { setFilter(f); setPage(1); }} style={{
+            padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
+            fontSize: 11, fontFamily: "'DM Mono',monospace", textTransform: "uppercase",
+            background: filter === f
+              ? (f === "issued" ? "rgba(0,230,180,0.12)" : f === "revoked" ? "rgba(255,77,109,0.12)" : f === "pending" ? "rgba(245,166,35,0.12)" : "rgba(255,255,255,0.1)")
+              : "rgba(255,255,255,0.04)",
+            color: filter === f
+              ? (f === "issued" ? "#00e6b4" : f === "revoked" ? "#ff4d6d" : f === "pending" ? "#f5a623" : "#fff")
+              : "rgba(255,255,255,0.4)",
+            borderWidth: 1, borderStyle: "solid",
+            borderColor: filter === f ? "rgba(255,255,255,0.12)" : "transparent"
+          }}>
+            {f} <span style={{ opacity: 0.5 }}>({counts[f]})</span>
+          </button>
+        ))}
+        <input
+          value={search}
+          onChange={e => { setSearch(e.target.value); setPage(1); }}
+          placeholder="Search name, email, course, cert ID…"
+          style={{ marginLeft: "auto", padding: "7px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", color: "#e8f0fe", fontSize: 12, fontFamily: "'DM Mono',monospace", outline: "none", width: 260 }}
+        />
+        <button onClick={load} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid rgba(0,230,180,0.2)", background: "rgba(0,230,180,0.06)", color: "#00e6b4", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono',monospace" }}>
+          ↻ Refresh
+        </button>
+      </div>
+
+      {/* Table */}
+      {loading ? (
+        <div style={{ textAlign: "center", padding: 60, color: "rgba(255,255,255,0.3)" }}>
+          <div style={{ fontSize: 28, marginBottom: 10 }}>📜</div>Loading certificates…
+        </div>
+      ) : paginated.length === 0 ? (
+        <div style={{ textAlign: "center", padding: 60, color: "rgba(255,255,255,0.3)" }}>No certificates found</div>
+      ) : (
+        <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, overflow: "hidden" }}>
+          {/* Table header */}
+          <div style={{ display: "grid", gridTemplateColumns: "1.8fr 1.4fr 1.2fr 100px 90px 80px", gap: 0, padding: "10px 18px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
+            {["Recipient", "Course", "University", "Issued", "Status", ""].map(h => (
+              <div key={h} style={{ fontSize: 9, fontFamily: "'DM Mono',monospace", color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{h}</div>
+            ))}
+          </div>
+
+          {/* Rows */}
+          {paginated.map((c, i) => (
+            <div
+              key={c._id}
+              onClick={() => setSelected(selected?._id === c._id ? null : c)}
+              style={{
+                display: "grid", gridTemplateColumns: "1.8fr 1.4fr 1.2fr 100px 90px 80px",
+                gap: 0, padding: "13px 18px",
+                borderBottom: i < paginated.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                cursor: "pointer", transition: "background 0.12s",
+                background: selected?._id === c._id ? "rgba(0,230,180,0.04)" : "transparent",
+                alignItems: "center",
+              }}
+              onMouseEnter={e => { if (selected?._id !== c._id) e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+              onMouseLeave={e => { if (selected?._id !== c._id) e.currentTarget.style.background = "transparent"; }}
+            >
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{c.recipientName}</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontFamily: "'DM Mono',monospace" }}>{c.recipientEmail}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.75)" }}>{c.courseName}</div>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>Grade: {c.grade}</div>
+              </div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>{c.university?.shortName || c.university?.name || "—"}</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", fontFamily: "'DM Mono',monospace" }}>
+                {c.issueDate ? new Date(c.issueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+              </div>
+              <CertStatusBadge status={c.status} />
+              <div style={{ textAlign: "right", fontSize: 12, color: "rgba(255,255,255,0.2)" }}>
+                {selected?._id === c._id ? "▲" : "▼"}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Expanded detail panel */}
+      {selected && (
+        <div style={{ marginTop: 16, background: "rgba(0,230,180,0.03)", border: "1px solid rgba(0,230,180,0.12)", borderRadius: 14, padding: "22px 24px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 10 }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#fff", fontFamily: "'Syne',sans-serif" }}>{selected.recipientName}</div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", fontFamily: "'DM Mono',monospace" }}>{selected.certId}</div>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <CertStatusBadge status={selected.status} />
+              {selected.status === "issued" && (
+                <button
+                  onClick={() => handleRevoke(selected)}
+                  disabled={revoking === selected._id}
+                  style={{ padding: "7px 16px", borderRadius: 8, border: "1px solid rgba(255,77,109,0.3)", background: "rgba(255,77,109,0.08)", color: "#ff4d6d", fontSize: 12, cursor: "pointer", fontFamily: "'DM Mono',monospace", opacity: revoking === selected._id ? 0.5 : 1 }}
+                >
+                  {revoking === selected._id ? "Revoking…" : "Revoke"}
+                </button>
+              )}
+              <button onClick={() => setSelected(null)} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "rgba(255,255,255,0.4)", fontSize: 12, cursor: "pointer" }}>✕ Close</button>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10, marginBottom: 16 }}>
+            {[
+              ["Recipient Name",  selected.recipientName],
+              ["Recipient Email", selected.recipientEmail],
+              ["Course",          selected.courseName],
+              ["Grade",           selected.grade],
+              ["University",      selected.university?.name || "—"],
+              ["Issue Date",      selected.issueDate ? new Date(selected.issueDate).toLocaleDateString("en-IN", { dateStyle: "long" }) : "—"],
+              ["Expiry Date",     selected.expiryDate ? new Date(selected.expiryDate).toLocaleDateString("en-IN", { dateStyle: "long" }) : "No expiry"],
+              ["Network",         selected.network || "—"],
+              ["Verifications",   selected.verifications ?? 0],
+              ["Block Number",    selected.blockNumber ?? "—"],
+            ].map(([k, v]) => (
+              <div key={k} style={{ background: "rgba(0,0,0,0.25)", borderRadius: 8, padding: "9px 12px" }}>
+                <div style={{ fontSize: 9, fontFamily: "'DM Mono',monospace", color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{k}</div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.75)" }}>{String(v)}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Hashes */}
+          {[
+            ["Cert Hash",  selected.certHash,  "#00e6b4"],
+            ["Tx Hash",    selected.txHash,    "rgba(168,85,247,0.8)"],
+            ["IPFS Hash",  selected.ipfsHash,  "#4da6ff"],
+          ].filter(([, v]) => v).map(([label, hash, color]) => (
+            <div key={label} style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+              <div style={{ fontSize: 9, fontFamily: "'DM Mono',monospace", color: "rgba(255,255,255,0.25)", textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0, width: 80 }}>{label}</div>
+              <code style={{ flex: 1, fontSize: 11, fontFamily: "'DM Mono',monospace", color, wordBreak: "break-all" }}>{hash}</code>
+              <button
+                onClick={() => { (copyText?.(hash) ?? navigator.clipboard.writeText(hash)); toast.success("Copied!"); }}
+                style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", fontSize: 10, cursor: "pointer", fontFamily: "'DM Mono',monospace", flexShrink: 0 }}
+              >copy</button>
+            </div>
+          ))}
+
+          {selected.status === "revoked" && selected.revokeReason && (
+            <div style={{ marginTop: 10, background: "rgba(255,77,109,0.07)", border: "1px solid rgba(255,77,109,0.2)", borderRadius: 8, padding: "10px 14px" }}>
+              <div style={{ fontSize: 10, fontFamily: "'DM Mono',monospace", color: "rgba(255,77,109,0.6)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>Revoke Reason</div>
+              <div style={{ fontSize: 13, color: "#ff4d6d" }}>{selected.revokeReason}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 22 }}>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.03)", color: page === 1 ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.6)", cursor: page === 1 ? "not-allowed" : "pointer", fontSize: 12 }}>← Prev</button>
+          <span style={{ padding: "6px 14px", fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: "'DM Mono',monospace" }}>Page {page} / {totalPages}</span>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.03)", color: page === totalPages ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.6)", cursor: page === totalPages ? "not-allowed" : "pointer", fontSize: 12 }}>Next →</button>
+        </div>
+      )}
+    </Page>
+  );
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const [pendingCount, setPendingCount] = useState(0);
@@ -464,7 +714,7 @@ export default function AdminDashboard() {
           <Route index               element={<Overview setPendingCount={setPendingCount} />} />
           <Route path="universities" element={<UniversitiesPage />} />
           <Route path="users"        element={<UsersPage />} />
-          <Route path="certificates" element={<Page title="Certificates" sub="All issued certificates"><div style={{ color: "rgba(255,255,255,0.3)", padding: 32, textAlign: "center" }}>Coming soon</div></Page>} />
+          <Route path="certificates" element={<CertificatesPage />} />
           {/* ── NEW ROUTES ── */}
           <Route path="ledger"       element={<LedgerPage />} />
           <Route path="network"      element={<NetworkPage />} />
